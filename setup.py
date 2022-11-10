@@ -4,7 +4,7 @@ install_requires = ["torch", "torch-sparse", "torch-scatter", "torch-geometric"]
 
 setup(
   name="graphPINN",
-  version = 0.0.1,
+  version = "0.0.1",
   maintainer="Nat Mathews",
   license="GNU3",
   packages=find_packages(),
