@@ -17,7 +17,7 @@ class SHARPData(torch.utils.data.Dataset):
         return len(self.list_IDs)
     def __getitem__(self, index):
         'Generates one sample of data'
-        filename = 'sharp_mhs_data/raw/sharp' + str(self.list_IDs[index]) + '.mat'
+        filename = 'path\\to\\data\\' + str(self.list_IDs[index]) + '.mat'
         try:
             mat = io.loadmat(filename)
         except NotImplementedError:
@@ -173,7 +173,9 @@ class MHSDataset(pyg.data.Dataset):
                                      y=torch.cat((torch.cat((y_bd,y_in),0),plas),1),
                                    pos=torch.cat((pos_bd,pos_in),0)
                         )
+#                 data.to(torch.device('cuda'))
                 kdtree = KNNGraph(k=self.k)(data)
+#                 kdtree.to(torch.device('cpu'))
                 kdtree.edge_attr = torch.cat((torch.index_select(plas,0,kdtree.edge_index[0,:]),torch.index_select(plas,0,kdtree.edge_index[1,:])),1)
 
                 if self.pre_filter is not None and not self.pre_filter(data):
