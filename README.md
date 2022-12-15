@@ -5,7 +5,9 @@ This work is ongoing, but a link will be posted to the arXiv paper for this Phys
 
 ---
 
-The basic NN architecture defined in the Kernel and ConvGraph classes should be applicable to a wide range of neural net use-cases. ConvGraph also keeps track of the physical derivatives with respect to space, which is useful for PINN loss functions such as the Magnetohydrostatic loss function provided. The data submodule is built to read the training dataset available via S3 bucket on Heliocloud, but any pyg.data.Dataset should work, as long as it provides physical location, magnetic field and plasma forcing for each graph node.
+The basic NN architecture defined in the Kernel and ConvGraph classes should be applicable to a wide range of neural net use-cases. ConvGraph also keeps track of the physical derivatives with respect to space, which is useful for PINN loss functions such as the Magnetohydrostatic loss function provided. The data submodule is built to read the training dataset available via S3 bucket on Heliocloud. You can find this data in the https://helio-dh-data.s3.us-east-1.amazonaws.com bucket with directory nhmathews/rbf-mhs-data
+
+However, any pyg.data.Dataset should work, as long as it provides physical location, magnetic field and plasma forcing for each graph node.
 
 ---
 
