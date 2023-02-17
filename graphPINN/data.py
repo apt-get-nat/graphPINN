@@ -17,7 +17,7 @@ class SHARPData(torch.utils.data.Dataset):
         return len(self.list_IDs)
     def __getitem__(self, index):
         'Generates one sample of data'
-        filename = 'path\\to\\data\\' + str(self.list_IDs[index]) + '.mat'
+        filename = 'D:\\nats ML stuff\\data\\raw\\sharp' + str(self.list_IDs[index]) + '.mat'
         try:
             mat = io.loadmat(filename)
         except NotImplementedError:
@@ -64,8 +64,67 @@ class SHARPData(torch.utils.data.Dataset):
             return torch.utils.data.TensorDataset(nodes, B, nodes_bd, B_bd, params)
 
 class MHSDataset(pyg.data.Dataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, k=50):
-        self.allSharps = [7058, 7066, 7067, 7069, 7070, 7074, 7075, 7078, 7081,
+    def __init__(self, root, k=50,transform=None, pre_transform=None, pre_filter=None):
+        self.allSharps = _allsharps
+        self.k=k
+        super().__init__(root, transform, pre_transform, pre_filter)
+    @property
+    def raw_file_names(self):
+        return ['sharp' + str(s) + '.mat' for s in self.allSharps]
+    
+    @property
+    def processed_file_names(self):
+        return ['simulation_' + str(t) + '.pt' for t in range(6 * len(self.allSharps))]
+    
+    def process(self):
+        
+        tensorData = SHARPData(self.allSharps)
+        
+        numSharps = len(tensorData)
+        numPerSharp = len(tensorData[0])
+        
+        counter = 0
+        for sharp_set in tqdm(tensorData):
+            for sim in sharp_set:
+                
+                x_in = torch.zeros(sim[1].shape)
+                x_bd = sim[3]
+                y_in = sim[1]
+                y_bd = sim[3]
+                pos_in = sim[0]
+                pos_bd = torch.cat((sim[2],torch.zeros(sim[2].shape[0],1)),1)
+
+                p_in = sim[5]
+                p_bd = sim[6]
+                
+                data = pyg.data.HeteroData()
+                data['in'].x = torch.cat((x_in,p_in),1)
+                data['in'].y = y_in
+                data['in'].pos = pos_in
+                data['in','adj','in'].edge_index = KNNGraph(k=self.k)(data['in']).edge_index
+                data['bd'].x = torch.cat((x_bd,p_bd),1)
+                data['bd'].y = y_bd
+                data['bd'].pos = pos_bd
+                #data['in','propagates','bd'].edge_index = pyg.utils.dense_to_sparse(torch.ones(x_in.shape[0],x_bd.shape[0]))
+                
+
+                if self.pre_filter is not None and not self.pre_filter(data):
+                    continue
+                if self.pre_transform is not None:
+                    self.pre_transform(data=data['in'])
+                    
+                torch.save(data, osp.join(self.processed_dir, f'simulation_{counter}.pt'))
+                counter += 1
+                
+    def len(self):
+        return len(self.processed_file_names)
+    
+    def get(self, index):
+        data = torch.load(osp.join(self.processed_dir, f'simulation_{index}.pt'))
+        return data
+    
+
+_allsharps = [7058, 7066, 7067, 7069, 7070, 7074, 7075, 7078, 7081,
                           7083, 7084, 7085, 7088, 7090, 7096, 7097, 7099, 7100,
                           7103, 7107, 7109, 7110, 7112, 7115, 7116, 7117, 7118,
                           7120, 7121, 7122, 7123, 7127, 7128, 7130, 7131, 7134,
@@ -137,62 +196,5 @@ class MHSDataset(pyg.data.Dataset):
                           8325, 8326, 8330, 8334, 8335, 8343, 8346, 8347, 8348,
                           8349, 8350, 8351, 8353, 8356, 8358, 8359, 8362, 8364,
                           8365, 8366, 8367, 8368, 8369]
-        self.k = k
-        super().__init__(root, transform, pre_transform, pre_filter)
-    @property
-    def raw_file_names(self):
-        return ['sharp' + str(s) + '.mat' for s in self.allSharps]
-    
-    @property
-    def processed_file_names(self):
-        return ['simulation_' + str(t) + '.pt' for t in range(6 * len(self.allSharps))]
-    
-    def process(self):
-        
-        tensorData = SHARPData(self.allSharps)
-        
-        numSharps = len(tensorData)
-        numPerSharp = len(tensorData[0])
-        
-        counter = 0
-        for sharp_set in tqdm(tensorData):
-            for sim in sharp_set:
-                
-                x_in = torch.zeros(sim[1].shape)
-                x_bd = sim[3]
-                y_in = sim[1]
-                y_bd = sim[3]
-                pos_in = sim[0]
-                pos_bd = torch.cat((sim[2],torch.zeros(sim[2].shape[0],1)),1)
-
-                p_in = sim[5]
-                p_bd = sim[6]
-                plas = torch.cat((p_bd, p_in),0)
-
-                data = pyg.data.Data(x=torch.cat((x_bd,x_in),0),
-                                     y=torch.cat((torch.cat((y_bd,y_in),0),plas),1),
-                                   pos=torch.cat((pos_bd,pos_in),0)
-                        )
-#                 data.to(torch.device('cuda'))
-                kdtree = KNNGraph(k=self.k)(data)
-#                 kdtree.to(torch.device('cpu'))
-                kdtree.edge_attr = torch.cat((torch.index_select(plas,0,kdtree.edge_index[0,:]),torch.index_select(plas,0,kdtree.edge_index[1,:])),1)
-
-                if self.pre_filter is not None and not self.pre_filter(data):
-                    continue
-                if self.pre_transform is not None:
-                    kdtree = self.pre_transform(kdtree)
-                    
-                torch.save(kdtree, osp.join(self.processed_dir, f'simulation_{counter}.pt'))
-                counter += 1
-                
-    def len(self):
-        return len(self.processed_file_names)
-    
-    def get(self, index):
-        data = torch.load(osp.join(self.processed_dir, f'simulation_{index}.pt'))
-        return data
-    
-    
     
     

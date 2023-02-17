@@ -32,7 +32,7 @@ class ConvGraph(pyg.nn.MessagePassing):
         self.kernel.reset_parameters()
     
     def message(self,x_i,x_j, pos_i,pos_j,edge_attr):
-        update = self.kernel.forward(torch.cat((pos_i,x_i,pos_j,x_j,edge_attr),1))
+        update = self.kernel.forward(torch.cat((pos_i,x_i,pos_j,x_j),1))
         
         return update
     
@@ -45,10 +45,33 @@ class ConvGraph(pyg.nn.MessagePassing):
         positions = [kdtree.pos[j,:].unsqueeze(0).requires_grad_() for j in range(kdtree.pos.shape[0])]
         x = kdtree.x
         for _ in range(iter):
-            x = self.propagate(kdtree.edge_index, x=x, pos=torch.cat(positions,0), edge_attr=kdtree.edge_attr)
+            x = self.propagate(kdtree.edge_index, x=x, pos=torch.cat(positions,0))
         
         gradBx = torch.autograd.grad([x[j,0] for j in range(x.shape[0])], positions, retain_graph=True)
         gradBy = torch.autograd.grad([x[j,1] for j in range(x.shape[0])], positions, retain_graph=True)
         gradBz = torch.autograd.grad([x[j,2] for j in range(x.shape[0])], positions, retain_graph=True)
         
         return [x, torch.cat(gradBx,0), torch.cat(gradBy,0), torch.cat(gradBz,0)]
+   
+class BDPropGraph(pyg.nn.MessagePassing):
+    def __init__(self, kernel):
+        super().__init__(aggr='mean')
+        self.kernel = kernel
+    def reset_parameters(self):
+        self.kernel.reset_parameters()
+    def message(self, x_i, x_j, pos_i, pos_j):
+        update = self.kernel.forward(torch.cat((pos_i,x_i,pos_j),1))
+        
+        return update
+    def update(self, aggr_out):
+        return aggr_out
+    
+    def forward(self, binarytree):
+        y = self.propagate(
+                    binarytree.edge_index[:,binarytree.edge_type==1],
+                    x=binarytree.x, pos=binarytree.pos
+        )
+        return y
+    
+
+
