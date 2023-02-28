@@ -11,14 +11,14 @@ def loss(output,target, logfn=None):
     # target[2] is presy
     # target[3] is presz
     
-    vec_diff = torch.sum(torch.square(output[0]-target[0])) /output[0].shape[0]*1e2
+    vec_diff = torch.sum(torch.square(output[0]-target[0])) /output[0].shape[0]*1e1
     mhs_diff = torch.sum(torch.square(torch.cat((
                           (output[1][:,2]-output[3][:,0])*output[0][:,2]-(output[2][:,0]-output[1][:,1])*output[0][:,1] - target[1],
                           (output[2][:,0]-output[1][:,1])*output[0][:,0]-(output[3][:,1]-output[2][:,2])*output[0][:,2] - target[2],
                           (output[3][:,1]-output[2][:,2])*output[0][:,1]-(output[1][:,2]-output[3][:,0])*output[0][:,0] - target[3]
-                        ),0))) /output[0].shape[0] * 1e6
+                        ),0))) /output[0].shape[0] * 1e5
     div_diff = torch.sum(torch.square(torch.cat((
-                          output[1][:,0],output[2][:,1],output[3][:,2]),0,))) /output[0].shape[0] * 1e6
+                          output[1][:,0],output[2][:,1],output[3][:,2]),0,))) /output[0].shape[0] * 1e5
     if logfn is not None:
         logfn(f'--vec:{vec_diff}, mhs:{mhs_diff}, div:{div_diff}--')
     
