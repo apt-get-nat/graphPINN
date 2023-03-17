@@ -69,16 +69,22 @@ class BDPropGraph(pyg.nn.MessagePassing):
         return y
     
 
-def FullModel(data, propgraph, convgraph):
+class FullModel(torch.nn.Module):
+    def __init__(self,propgraph, convgraph):
+        super(FullModel, self).__init__()
+        self.propgraph = propgraph
+        self.convgraph = convgraph
+        
+    def forward(self,data):
     
-    positions = [data.pos[j,:].unsqueeze(0).requires_grad_() for j in range(data.pos.shape[0])]
-    
-    data.x[:,0:3] = propgraph.forward(data,positions)
-    B = convgraph.forward(data, positions)
-    
-    gradBx = torch.autograd.grad([B[j,0] for j in range(B.shape[0])], positions, retain_graph=True)
-    gradBy = torch.autograd.grad([B[j,1] for j in range(B.shape[0])], positions, retain_graph=True)
-    gradBz = torch.autograd.grad([B[j,2] for j in range(B.shape[0])], positions, retain_graph=True)
-    
-    return [B, torch.cat(gradBx,0), torch.cat(gradBy,0), torch.cat(gradBz,0)]
+        positions = [data.pos[j,:].unsqueeze(0).requires_grad_() for j in range(data.pos.shape[0])]
+
+        data.x[:,0:3] = self.propgraph.forward(data,positions)
+        B = self.convgraph.forward(data, positions)
+
+        gradBx = torch.autograd.grad([B[j,0] for j in range(B.shape[0])], positions, retain_graph=True)
+        gradBy = torch.autograd.grad([B[j,1] for j in range(B.shape[0])], positions, retain_graph=True)
+        gradBz = torch.autograd.grad([B[j,2] for j in range(B.shape[0])], positions, retain_graph=True)
+
+        return [B, torch.cat(gradBx,0), torch.cat(gradBy,0), torch.cat(gradBz,0)]
     
