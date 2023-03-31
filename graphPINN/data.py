@@ -5,7 +5,7 @@ import h5py
 import torch_geometric as pyg
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import KNNGraph
-import os.path as osp
+import os
 from tqdm import tqdm
 
 class SHARPData(torch.utils.data.Dataset):
@@ -17,7 +17,7 @@ class SHARPData(torch.utils.data.Dataset):
         return len(self.list_IDs)
     def __getitem__(self, index):
         'Generates one sample of data'
-        filename = 'D:\\nats ML stuff\\data_hex\\raw\\sharp' + str(self.list_IDs[index]) + '.mat'
+        filename = _rawfolder + 'sharp' + str(self.list_IDs[index]) + '.mat'
         try:
             mat = io.loadmat(filename)
         except NotImplementedError:
@@ -56,7 +56,7 @@ class SHARPData(torch.utils.data.Dataset):
 
 class MHSDataset(pyg.data.Dataset):
     def __init__(self, root, k=50,transform=None, pre_transform=None, pre_filter=None):
-        self.allSharps = _allsharps
+        self.allSharps = get_allsharps()
         self.k=k
         super().__init__(root, transform, pre_transform, pre_filter)
     @property
@@ -93,10 +93,14 @@ class MHSDataset(pyg.data.Dataset):
                 data['in'].y = y_in
                 data['in'].pos = pos_in
                 data['in','adj','in'].edge_index = KNNGraph(k=self.k)(data['in']).edge_index
+                data['in'].edge_index = None
                 data['bd'].x = torch.cat((x_bd,p_bd),1)
                 data['bd'].y = y_bd
                 data['bd'].pos = pos_bd
-                #data['in','propagates','bd'].edge_index = pyg.utils.dense_to_sparse(torch.ones(x_in.shape[0],x_bd.shape[0]))
+                data['bd','propagates','in'].edge_index, data['bd','propagates','in'].edge_attr = \
+                        pyg.utils.dense_to_sparse(
+                                torch.ones(data['bd'].x.shape[0],data['in'].x.shape[0])
+                        )
                 
 
                 if self.pre_filter is not None and not self.pre_filter(data):
@@ -104,17 +108,24 @@ class MHSDataset(pyg.data.Dataset):
                 if self.pre_transform is not None:
                     self.pre_transform(data=data['in'])
                     
-                torch.save(data, osp.join(self.processed_dir, f'simulation_{counter}.pt'))
+                torch.save(data, os.path.join(self.processed_dir, f'simulation_{counter}.pt'))
                 counter += 1
                 
     def len(self):
         return len(self.processed_file_names)
     
     def get(self, index):
-        data = torch.load(osp.join(self.processed_dir, f'simulation_{index}.pt'))
+        data = torch.load(os.path.join(self.processed_dir, f'simulation_{index}.pt'))
         return data
     
-
-_allsharps = [7058, 7066, 7067, 7069, 7070, 7074]
+def get_allsharps():
+    # return _allsharps
+    sharplist = os.listdir(_rawfolder)
+    allsharps = []
+    for filename in sharplist:
+        allsharps.append(int(filename.replace('sharp','').replace('.mat','')))
+    return allsharps
     
+_rawfolder = '/mnt/d/MHS_hex_sharp_solutions_fullforce/'
+_allsharps = [7107,7164,7109,7165,7112,7166,7118,7167,7121,7170,7123,7171,7128,7172,7130,7182,7134,7183,7139,7188]
     
