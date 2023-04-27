@@ -5,8 +5,9 @@ from tqdm.notebook import tqdm
 
 class Logfn:
     def __init__(self, folder):
-        logging.basicConfig(filename=f'{folder}run.log',format='%(asctime)s - %(message)s', filemode='a+', level=logging.INFO)
+        self.folder = folder
     def __call__(self, message, tq=False):
+        logging.basicConfig(filename=f'{self.folder}run.log',format='%(asctime)s - %(message)s', filemode='a+', level=logging.INFO)
         logging.info(message)
         if tq:
             tqdm.write(message)

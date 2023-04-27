@@ -78,6 +78,9 @@ class FullModel(torch.nn.Module):
     def forward(self,data):
         # data = data.to_homogeneous()
         
+        if isinstance(data, list):
+            data = pyg.data.Batch.from_data_list(data)
+        
         positions = [data.pos[j,:].unsqueeze(0).requires_grad_() for j in range(data.pos.shape[0])]
 
         data.x[:,0:3] = self.propgraph.forward(data,positions)

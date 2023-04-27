@@ -1,4 +1,5 @@
 import torch
+from random import randint
 
 def loss(output,target, index=-1, logfn=None):
     """
@@ -34,11 +35,22 @@ def loss(output,target, index=-1, logfn=None):
     loss = torch.cat((vec_diff,mhs_diff,torch.unsqueeze(div_diff,0)))
     vec_diff = torch.sum(vec_diff)
     mhs_diff = torch.sum(mhs_diff)
+    div_diff = torch.sum(div_diff)
     if logfn is not None:
         logfn(f'--vec:{vec_diff}, mhs:{mhs_diff}, div:{div_diff}--')
     
+    if index == 'random':
+        r = randint(0,2)
+        if r == 0:
+            index = [0,1,2]
+        elif r == 1:
+            index = [3,4,5]
+        else:# r == 2:
+            index = -1
+    
     if type(index) == int and (index < 0 or index > 6):
         index = [0,1,2,3,4,5,6]
+        
     return torch.sum(loss[index]), vec_diff.item(), mhs_diff.item(), div_diff.item()
         
     

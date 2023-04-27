@@ -28,20 +28,21 @@ class SHARPData(torch.utils.data.Dataset):
 
         n = int(mat['n'])
 
-        Bn = mat['Bns']
+        Bn = np.concatenate((mat['Bns'],mat['Bff']),1)
         Bn = np.stack((Bn[0:n,:],Bn[n:2*n,:],Bn[2*n:3*n,:]),0)
         Bn = np.transpose(Bn,(2,1,0))
         
 
         nodesn = np.squeeze(mat['nodes'])
-        nodesn = np.repeat(np.expand_dims(nodesn,0),6,axis=0)
+        nodesn = np.repeat(np.expand_dims(nodesn,0),Bn.shape[0],axis=0)
         index_z0 = np.squeeze(mat['index_z0']).astype(int)
         Bn_bd = Bn[:,index_z0,:]
         nodesn_bd = nodesn[:,index_z0,:];
         
-        plasman = mat['forcevec']
+        plasman = np.concatenate((np.zeros((3*n,1)),mat['forcevec']),1)
         plasman = np.stack((plasman[0:n,:],plasman[n:2*n,:],plasman[2*n:3*n,:]),0)
         plasman = np.transpose(plasman,(2,1,0))
+        
         
         B = torch.Tensor(Bn[:,np.setdiff1d(range(n),index_z0),:])
         nodes = torch.Tensor(nodesn[:,np.setdiff1d(range(n),index_z0),:])
@@ -126,6 +127,6 @@ def get_allsharps():
         allsharps.append(int(filename.replace('sharp','').replace('.mat','')))
     return allsharps
     
-_rawfolder = '/mnt/d/MHS_hex_sharp_solutions_fullforce/'
-_allsharps = [7107,7164,7109,7165,7112,7166,7118,7167,7121,7170,7123,7171,7128,7172,7130,7182,7134,7183,7139,7188]
+_rawfolder = '/mnt/d/MHS_scattered_solutions_nullspace/'
+_allsharps = [7058,7066,7067,7069,7070,7074,7078,7081,7083,7084,7085]
     
