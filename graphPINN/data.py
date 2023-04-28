@@ -127,6 +127,6 @@ def get_allsharps():
         allsharps.append(int(filename.replace('sharp','').replace('.mat','')))
     return allsharps
     
-_rawfolder = '/mnt/d/MHS_scattered_solutions_nullspace/'
+_rawfolder = 'D:\\MHS_scattered_solutions_nullspace\\'
 _allsharps = [7058,7066,7067,7069,7070,7074,7078,7081,7083,7084,7085]
     

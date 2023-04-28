@@ -25,12 +25,12 @@ def cleanup():
 def DistributedLoader(rank, world_size, dataset, batch_size=4):
     sampler = torch.utils.data.DistributedSampler(dataset,
                                                   num_replicas=world_size,rank=rank,
-                                                  shuffle=False,drop_last=True
+                                                  shuffle=False,drop_last=False
                                                  )
     dataloader = pyg.loader.DataListLoader(dataset,batch_size=batch_size,
                                 shuffle=False,sampler=sampler,
                                 num_workers=0,pin_memory=False,
-                                drop_last=True
+                                drop_last=False
                                )
     return dataloader
 
@@ -90,7 +90,7 @@ def train(rank, world_size, model, trainset, validset, *args):
             if rank == 0:
                 torch.save((sum(full_train_loss)/world_size).cpu(),f'{checkpointfile}train.pt')
                 torch.save((sum(full_valid_loss)/world_size).cpu(),f'{checkpointfile}valid.pt')
-                torch.save(model.module.module,f'{checkpointfile}model.pt')
+                torch.save(model.module,f'{checkpointfile}model.pt')
                 logfn(f'[{rank}] Model saved.')
         cleanup()
     except Exception as e:

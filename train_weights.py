@@ -8,9 +8,11 @@ from time import time
 from scipy.io import savemat, loadmat
 import os
 
+from hanging_threads import start_monitoring
+
 def main():
     
-    folder = "/mnt/c/Users/NASA/Documents/ML_checkpoints/2023-04-25/"
+    folder = "C:\\Users\\NASA\\Documents\\ML_checkpoints\\2023-04-27"
     if not os.path.exists(folder):
         os.makedirs(folder)
     logfn = graphPINN.debug.Logfn(folder)
@@ -21,7 +23,7 @@ def main():
     k = 100
     ddp = False
 
-    dataset = graphPINN.data.MHSDataset(f'/mnt/d/scattered_data_k={k}',k=k)
+    dataset = graphPINN.data.MHSDataset(f'D:\\scattered_data_k={k}',k=k)
     propdesign = [12,6,3]
     # propdesign = [12,3]
     convdesign = [18,9,6,3]
@@ -51,8 +53,9 @@ def main():
     
     lossdict['index_array'] = str(lossindex)
     torch.save(model, f'{folder}model_trainsize-{len(trainset)}_k-{k}_params-{math.prod(convdesign)+math.prod(propdesign)}.pt')
-    savemat(f'{folder}loss_{epochs}_trainsize-{len(trainset)}_k-{k}_params-{math.prod(convdesign)+math.prod(propdesign)}.mat', lossdict)
+    savemat(f'{folder}loss_{epochs}_trainsize-{len(trainset)}_k-{k}_params-{math.prod(convdesign)+math.prod(propdesign)}.mat',lossdict)
     
     
 if __name__ == "__main__":
+#     start_monitoring(seconds_frozen=400)
     main()
