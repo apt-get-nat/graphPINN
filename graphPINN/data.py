@@ -4,7 +4,7 @@ from scipy import io
 import h5py
 import torch_geometric as pyg
 from torch_geometric.data import Data, InMemoryDataset
-from torch_geometric.transforms import KNNGraph
+from torch_geometric.transforms import KNNGraph, RadiusGraph
 import os
 from tqdm import tqdm
 
@@ -52,8 +52,9 @@ class SHARPData(torch.utils.data.Dataset):
         plasma = torch.Tensor(plasman[:,np.setdiff1d(range(n),index_z0),:])
         plasma_bd = torch.Tensor(plasman[:,index_z0,:])
         
+        sharp = torch.full((Bn.shape[0],1), self.list_IDs[index])
         
-        return torch.utils.data.TensorDataset(nodes, B, nodes_bd, B_bd, plasma, plasma_bd)
+        return torch.utils.data.TensorDataset(nodes, B, nodes_bd, B_bd, plasma, plasma_bd, sharp)
 
 class MHSDataset(pyg.data.Dataset):
     def __init__(self, root, k=50,transform=None, pre_transform=None, pre_filter=None):
@@ -89,6 +90,7 @@ class MHSDataset(pyg.data.Dataset):
                 p_in = sim[4]
                 p_bd = sim[5]
                 
+                
                 data = pyg.data.HeteroData()
                 data['in'].x = torch.cat((x_in,p_in),1)
                 data['in'].y = y_in
@@ -98,10 +100,21 @@ class MHSDataset(pyg.data.Dataset):
                 data['bd'].x = torch.cat((x_bd,p_bd),1)
                 data['bd'].y = y_bd
                 data['bd'].pos = pos_bd
+                
                 data['bd','propagates','in'].edge_index, data['bd','propagates','in'].edge_attr = \
                         pyg.utils.dense_to_sparse(
                                 torch.ones(data['bd'].x.shape[0],data['in'].x.shape[0])
                         )
+                data['bd','propagates','in'].edge_index, mask = pyg.utils.dropout_edge(
+                        edge_index = data['bd','propagates','in'].edge_index, p = 0.8,
+                        training=True
+                )
+                data['bd','propagates','in'].edge_attr = data['bd','propagates','in'].edge_attr[mask]
+
+#                 data['bd','propagates','in'].edge_index = RadiusGraph()(data)
+                
+                
+                data.sharpnum = sim[6]
                 
 
                 if self.pre_filter is not None and not self.pre_filter(data):
@@ -127,6 +140,6 @@ def get_allsharps():
         allsharps.append(int(filename.replace('sharp','').replace('.mat','')))
     return allsharps
     
-_rawfolder = 'D:\\MHS_scattered_solutions_nullspace\\'
+_rawfolder = 'D:\\MHS_solutions_v4\\'
 _allsharps = [7058,7066,7067,7069,7070,7074,7078,7081,7083,7084,7085]
     

@@ -13,7 +13,7 @@ from hanging_threads import start_monitoring
 def main():
     # os.environ['MKL_THREADING_LAYER'] = 'GNU' # fixes a weird intel multiprocessing error with numpy
     
-    folder = "C:\\Users\\NASA\\Documents\\ML_checkpoints\\2023-04-28\\"
+    folder = "C:\\Users\\NASA\\Documents\\ML_checkpoints\\2023-05-29\\"
     if not os.path.exists(folder):
         os.makedirs(folder)
     logfn = graphPINN.debug.Logfn(folder)
@@ -21,14 +21,14 @@ def main():
     for j in range(torch.cuda.device_count()):
         logfn(f"{j}: {graphPINN.debug.pretty_size(torch.cuda.get_device_properties(j).total_memory)} of {'cuda' if torch.cuda.is_available() else 'cpu'} memory")
     
-    k = 100
+    k = 50
     ddp = True
 
-    dataset = graphPINN.data.MHSDataset(f'D:\\scattered_data_k={k}',k=k)
-    propdesign = [12,6,3]
-    # propdesign = [12,3]
-    convdesign = [18,9,6,3]
-    # convdesign = [18,3]
+    dataset = graphPINN.data.MHSDataset(f'E:\\scattered_data_v4_k={k}',k=k)
+#     propdesign = [12,6,3]
+    propdesign = [12,3]
+#     convdesign = [18,9,6,3]
+    convdesign = [18,3]
 
     propkernel = graphPINN.KernelNN(propdesign, torch.nn.ReLU)
     propgraph = graphPINN.BDPropGraph(propkernel)
@@ -39,8 +39,8 @@ def main():
     trainset, validset, testset = torch.utils.data.random_split(dataset,[0.8, 0.1, 0.1],generator=torch.Generator().manual_seed(314))
 #     trainset, validset, testset = torch.utils.data.random_split(dataset,[0.01, 0.005, 0.985],generator=torch.Generator().manual_seed(314))
     
-    lossindex = [-1]
-    epochs = 1
+    lossindex = [[0,1,2],[3,4,5],-1]
+    epochs = 5
     
     logfn(len(trainset))
     logfn(len(validset))
@@ -61,5 +61,5 @@ def main():
     
     
 if __name__ == "__main__":
-    start_monitoring(seconds_frozen=400)
+#     start_monitoring(seconds_frozen=400)
     main()

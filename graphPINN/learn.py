@@ -73,10 +73,10 @@ def runEpoch(model, dataset, optmethod = torch.optim.Adam, logfn=None, lossindex
         optimizer = optmethod(model.parameters())
     
     if ddpRank is None:
-        batch_size = 3
+        batch_size = 2
         loader = pyg.loader.DataListLoader(dataset, batch_size=batch_size,shuffle=False)
     else:
-        batch_size = 6
+        batch_size = 4
         loader = ddp.DistributedLoader(ddpRank, world_size, dataset, batch_size=batch_size)
         loader.sampler.set_epoch(epoch)
         
@@ -100,6 +100,7 @@ def runEpoch(model, dataset, optmethod = torch.optim.Adam, logfn=None, lossindex
             
         for j in range(len(data)):
             data[j] = data[j].to_homogeneous().to(device)
+            
         true = [torch.cat([datum.y[:,0:3] for datum in data]),
                 torch.cat([datum.x[:,3] for datum in data]),
                 torch.cat([datum.x[:,4] for datum in data]),
