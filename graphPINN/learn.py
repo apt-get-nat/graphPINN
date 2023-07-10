@@ -66,7 +66,7 @@ def runEpoch(model, dataset, optmethod = torch.optim.Adam, logfn=None, lossindex
         # necessary for lbfgs
         optimizer.zero_grad()
         output = model(data)
-        loss,_,_,_ = MHSloss(output, true)
+        loss,_,_,_ = MHSloss(output, true,index=lossindex)
         loss.backward()
         return loss
     if model.training:

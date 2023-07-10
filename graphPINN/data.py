@@ -101,7 +101,7 @@ class MHSDataset(pyg.data.Dataset):
                 data['bd'].y = y_bd
                 data['bd'].pos = pos_bd
                 
-                data['bd','propagates','in'].edge_index, data['bd','propagates','in'].edge_attr = \
+                data['bd','propagates','in'].edge_index, _ = \
                         pyg.utils.dense_to_sparse(
                                 torch.ones(data['bd'].x.shape[0],data['in'].x.shape[0])
                         )
@@ -109,7 +109,7 @@ class MHSDataset(pyg.data.Dataset):
                         edge_index = data['bd','propagates','in'].edge_index, p = 0.8,
                         training=True
                 )
-                data['bd','propagates','in'].edge_attr = data['bd','propagates','in'].edge_attr[mask]
+#                 data['bd','propagates','in'].edge_attr = data['bd','propagates','in'].edge_attr[mask]
 
 #                 data['bd','propagates','in'].edge_index = RadiusGraph()(data)
                 
