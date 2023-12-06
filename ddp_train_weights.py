@@ -13,7 +13,7 @@ from hanging_threads import start_monitoring
 def main():
     # os.environ['MKL_THREADING_LAYER'] = 'GNU' # fixes a weird intel multiprocessing error with numpy
     
-    folder = "C:\\Users\\NASA\\Documents\\ML_checkpoints\\2023-07-07\\"
+    folder = "C:\\Users\\NASA\\Documents\\ML_checkpoints\\2023-08-22\\"
     if not os.path.exists(folder):
         os.makedirs(folder)
     logfn = graphPINN.debug.Logfn(folder)
@@ -24,11 +24,15 @@ def main():
     k = 100
     ddp = True
 
-    dataset = graphPINN.data.MHSDataset(f'E:\\scattered_data_v4_k={k}',k=k)
+    l = 100
+    bd = 200
+    dataset = graphPINN.data.MHSDataset(f'D:\\v4_set_k={k}_l={l}_bd={bd}',k=k, l=l, bd=bd)
+    # layer 1 of prop: B_0 + x,y_0 + F_0 + x,y,z_node + F_node = 14
 #     propdesign = [12,6,3]
-    propdesign = [12,3]
+    propdesign = [14,6,3]
+    # layer 1 of conv: P_k + x,y,z_k + F_k + P_node + x,y,z_node + F_node = 18
 #     convdesign = [18,9,6,3]
-    convdesign = [18,3]
+    convdesign = [18,12,3]
 
     propkernel = graphPINN.KernelNN(propdesign, torch.nn.ReLU)
     propgraph = graphPINN.BDPropGraph(propkernel)
@@ -36,18 +40,19 @@ def main():
     convgraph = graphPINN.ConvGraph(convkernel)
     model = graphPINN.FullModel(propgraph, convgraph)
 
-#     trainset, validset, testset = torch.utils.data.random_split(dataset,[0.8, 0.1, 0.1],generator=torch.Generator().manual_seed(314))
-    trainset, validset, testset = torch.utils.data.random_split(dataset,[0.01, 0.005, 0.985],generator=torch.Generator().manual_seed(314))
+    trainset, validset, testset = torch.utils.data.random_split(dataset,[0.8, 0.1, 0.1],generator=torch.Generator().manual_seed(314))
+#     trainset, validset, testset = torch.utils.data.random_split(dataset,[0.01, 0.005, 0.985],generator=torch.Generator().manual_seed(314))
     
-    lossindex = [[0,1,2]]
+    lossindex = [0,1,2,[3,4,5],[0,1,2]]
     epochs = 3
     
-    logfn(len(trainset))
-    logfn(len(validset))
+#    model = pyg.nn.DataParallel(graphPINN.FullModel(propgraph, convgraph))
+#    model.load_state_dict(torch.load("C:\\Users\\NASA\\Documents\\ML_checkpoints\\2023-07-31\\_1691861661.7859707epoch-1.pt"))
+#    model = model.module
     
     training_loss, validation_loss, state_dict = graphPINN.learn.train(
                 model, trainset, validset, lossindex=lossindex,
-                epochs=epochs, logfn=logfn, checkpointfile=folder, use_ddp = ddp, optmethod=torch.optim.LBFGS)
+                epochs=epochs, logfn=logfn, checkpointfile=folder, use_ddp = ddp)
     model.load_state_dict(state_dict)
     lossdict = { 'trainloss':  training_loss.numpy(),
                  'validloss':validation_loss.numpy(),

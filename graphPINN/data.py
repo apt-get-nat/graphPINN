@@ -57,9 +57,11 @@ class SHARPData(torch.utils.data.Dataset):
         return torch.utils.data.TensorDataset(nodes, B, nodes_bd, B_bd, plasma, plasma_bd, sharp)
 
 class MHSDataset(pyg.data.Dataset):
-    def __init__(self, root, k=50,transform=None, pre_transform=None, pre_filter=None):
+    def __init__(self, root, k=50, l=50, bd=200, transform=None, pre_transform=None, pre_filter=None):
         self.allSharps = get_allsharps()
         self.k=k
+        self.l=l
+        self.bd=bd
         super().__init__(root, transform, pre_transform, pre_filter)
     @property
     def raw_file_names(self):
@@ -85,7 +87,7 @@ class MHSDataset(pyg.data.Dataset):
                 y_in = sim[1]
                 y_bd = sim[3]
                 pos_in = sim[0]
-                pos_bd = torch.cat((sim[2],torch.zeros(sim[2].shape[0],1)),1)
+                pos_bd = sim[2]
 
                 p_in = sim[4]
                 p_bd = sim[5]
@@ -101,17 +103,15 @@ class MHSDataset(pyg.data.Dataset):
                 data['bd'].y = y_bd
                 data['bd'].pos = pos_bd
                 
-                data['bd','propagates','in'].edge_index, _ = \
-                        pyg.utils.dense_to_sparse(
-                                torch.ones(data['bd'].x.shape[0],data['in'].x.shape[0])
-                        )
-                data['bd','propagates','in'].edge_index, mask = pyg.utils.dropout_edge(
-                        edge_index = data['bd','propagates','in'].edge_index, p = 0.8,
-                        training=True
-                )
-#                 data['bd','propagates','in'].edge_attr = data['bd','propagates','in'].edge_attr[mask]
-
-#                 data['bd','propagates','in'].edge_index = RadiusGraph()(data)
+                edges_to_add = torch.randint(0,data['in'].num_nodes,(2,data['in'].num_nodes * self.l), dtype=torch.long)
+                edges_to_add[1,:] = torch.Tensor(np.repeat(np.arange(0,data['in'].num_nodes),self.l))
+                data['in','adj','in'].edge_index = torch.cat((data['in','adj','in'].edge_index, edges_to_add),dim=1)
+                
+                edges_to_add = torch.randint(0,data['bd'].num_nodes,(2,data['in'].num_nodes * self.bd),dtype=torch.long)
+                edges_to_add[1,:] = torch.Tensor(np.repeat(np.arange(0,data['in'].num_nodes),self.bd))
+                data['bd','propagates','in'].edge_index = edges_to_add
+                
+                pyg.transforms.RemoveDuplicatedEdges(reduce='min')(data)
                 
                 
                 data.sharpnum = sim[6]

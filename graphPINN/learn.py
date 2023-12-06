@@ -6,14 +6,14 @@ from graphPINN.MHS import loss as MHSloss
 from graphPINN import ddp, debug
 import sys
 
-def train(model, trainset, validset, epochs = 1, start_epoch = 0, logfn=None, optmethod = torch.optim.Adam, lossindex=-1, checkpointfile = '', use_ddp=False):
+def train(model, trainset, validset, epochs = 1, start_epoch = 0, logfn=None, optmethod = torch.optim.Adam, lossindex=-1, checkpointfile = '', use_ddp=False, use_tqdm=False):
     if use_ddp:
         # Catch ddp and forward to the proper function
         n_gpus = torch.cuda.device_count()
         assert n_gpus >= 2, f"Requires at least 2 GPUs to run, but got {n_gpus}"
         calltime = time()
         ddp.mp_train(n_gpus,model,trainset,validset,
-                     epochs=epochs, start_epoch=start_epoch, optmethod=optmethod, lossindex=lossindex,
+                     epochs=epochs, start_epoch=start_epoch, optmethod=optmethod, lossindex=lossindex, use_tqdm=use_tqdm,
                      logfn=logfn,checkpointfile=f'{checkpointfile}_{calltime}')
         try:
             training_loss = torch.load(f'{checkpointfile}_{calltime}train.pt')
@@ -36,7 +36,7 @@ def train(model, trainset, validset, epochs = 1, start_epoch = 0, logfn=None, op
                 model.train(True)
 
                 training_loss[:,epoch,index] = runEpoch(model, trainset, optmethod = optmethod,
-                                                  logfn=logfn, lossindex=lossindex[index], use_tqdm=False
+                                                  logfn=logfn, lossindex=lossindex[index], use_tqdm=use_tqdm
                                                  )
                 logfn(f'Epoch {epoch+1} completed. Loss: {training_loss[3,epoch,index]}; Total time: {time()-start_time}')
                 logfn(f'running vec: {training_loss[0,epoch,index]}, running mhs: {training_loss[1,epoch,index]}, running div: {training_loss[2,epoch,index]}')
@@ -47,7 +47,7 @@ def train(model, trainset, validset, epochs = 1, start_epoch = 0, logfn=None, op
                     torch.save(model.state_dict(), checkpointfile + f'epoch-{epoch+1}.pt')
 
                 validation_loss[:,epoch,index] = runEpoch(model, validset, optmethod = None,
-                                                  logfn=logfn, lossindex=lossindex[index], use_tqdm=False
+                                                  logfn=logfn, lossindex=lossindex[index], use_tqdm=use_tqdm
                                                  )
                 logfn(f'Validation loss: {validation_loss[3,epoch,index]}; validation time: {time()-start_time}')
                 logfn(f'running vec: {validation_loss[0,epoch,index]}, running mhs: {validation_loss[1,epoch,index]}, running div: {validation_loss[2,epoch,index]}')
@@ -73,10 +73,10 @@ def runEpoch(model, dataset, optmethod = torch.optim.Adam, logfn=None, lossindex
         optimizer = optmethod(model.parameters())
     
     if ddpRank is None:
-        batch_size = 2
+        batch_size = 1
         loader = pyg.loader.DataListLoader(dataset, batch_size=batch_size,shuffle=False)
     else:
-        batch_size = 4
+        batch_size = 2
         loader = ddp.DistributedLoader(ddpRank, world_size, dataset, batch_size=batch_size)
         loader.sampler.set_epoch(epoch)
         
@@ -95,20 +95,26 @@ def runEpoch(model, dataset, optmethod = torch.optim.Adam, logfn=None, lossindex
         
     for data in tqdm(loader):
         
+        for j in range(len(data)):
+            data[j] = data[j].to(device)
+            
         if model.training:
             optimizer.zero_grad(set_to_none = True)
             
-        for j in range(len(data)):
-            data[j] = data[j].to_homogeneous().to(device)
-            
-        true = [torch.cat([datum.y[:,0:3] for datum in data]),
-                torch.cat([datum.x[:,3] for datum in data]),
-                torch.cat([datum.x[:,4] for datum in data]),
-                torch.cat([datum.x[:,5] for datum in data])]
+        true = [torch.cat([datum['in'].y[:,0:3] for datum in data]),
+                torch.cat([datum['in'].x[:,3]   for datum in data]),
+                torch.cat([datum['in'].x[:,4]   for datum in data]),
+                torch.cat([datum['in'].x[:,5]   for datum in data])]
             
         pred = model.forward(data)
         loss, vec_diff, mhs_diff, div_diff = MHSloss(pred,true, index=lossindex, logfn=logfn)
         iter += 1
+        
+        if np.isnan(loss.item()):
+            logfn(f'NaN found! dataset {[datum.sharpnum for datum in data]}')
+            for w in model.parameters():
+                logfn(w.data)
+            raise AssertionError('Nan found')
 
         if model.training:
             loss.backward()

@@ -35,13 +35,16 @@ def DistributedLoader(rank, world_size, dataset, batch_size=4):
     return dataloader
 
 def mp_train(world_size,model,trainset,validset, **kwargs):
-    
-    mp.spawn(train,
-              args=(world_size,model,trainset,validset,kwargs),
-              nprocs=world_size
-             )
-
+    mp.spawn(graphPINN.ddp.testfn,nprocs=1)
+#     mp.spawn(train,
+#               args=(world_size,model,trainset,validset,kwargs),
+#               nprocs=2
+#              )
+def testfn(rank):
+    print('called')
+    return True
 def train(rank, world_size, model, trainset, validset, *args):
+    print('train called')
     try:
         kwargs = args[0]
         epochs = kwargs.setdefault('epochs',1)
@@ -50,6 +53,7 @@ def train(rank, world_size, model, trainset, validset, *args):
         lossindex = kwargs.setdefault('lossindex',[-1])
         logfn = kwargs.setdefault('logfn',None)
         checkpointfile = kwargs.setdefault('checkpointfile','')
+        use_tqdm = kwargs.setdefault('use_tqdm',False)
 
         logfn(f'Starting on rank {rank}')
         setup(rank, world_size)
@@ -65,8 +69,9 @@ def train(rank, world_size, model, trainset, validset, *args):
             for epoch in range(start_epoch, epochs):
                 start_time = time()
                 model.train(True)
-                training_loss[:,epoch,index] = graphPINN.learn.runEpoch(model, trainset, optmethod = optmethod, use_tqdm=False,
-                                                  logfn=logfn, lossindex=lossindex[index], ddpRank=rank,world_size=world_size, epoch=epoch
+                training_loss[:,epoch,index] = graphPINN.learn.runEpoch(model, trainset, optmethod = optmethod, use_tqdm=use_tqdm,
+                                                  logfn=logfn, lossindex=lossindex[index], ddpRank=rank,world_size=world_size,
+                                                  epoch=epoch
                                                  )
                 logfn(f'[{rank}] Epoch {epoch+1} completed. Loss: {training_loss[3,epoch,index]}; Total time: {time()-start_time}')
                 logfn(f'[{rank}] running vec: {training_loss[0,epoch,index]}, running mhs: {training_loss[1,epoch,index]}, running div: {training_loss[2,epoch,index]}')
@@ -76,7 +81,7 @@ def train(rank, world_size, model, trainset, validset, *args):
                     torch.save(model.state_dict(), checkpointfile + f'epoch-{epoch+1}.pt')
 
                 start_time = time()
-                validation_loss[:,epoch,index] = graphPINN.learn.runEpoch(model, validset, optmethod = None, use_tqdm=False,
+                validation_loss[:,epoch,index] = graphPINN.learn.runEpoch(model, validset, optmethod = None, use_tqdm=use_tqdm,
                                                     logfn=logfn, lossindex=lossindex[index], ddpRank=rank,world_size=world_size
                                                    )
                 logfn(f'[{rank}] Validation loss: {validation_loss[3,epoch,index]}; validation time: {time()-start_time}')

@@ -24,7 +24,7 @@ class KernelNN(torch.nn.Module):
 
 class ConvGraph(pyg.nn.MessagePassing):
     def __init__(self, kernel):
-        # kernel a torch module with input size 12 and output size 3
+        # kernel a torch module with input size 18 and output size 3
         super().__init__(aggr='mean')
         self.kernel = kernel
     
@@ -39,14 +39,14 @@ class ConvGraph(pyg.nn.MessagePassing):
     def update(self,aggr_out):
         return aggr_out
     
-    def forward(self,binarytree,positions):
+    def forward(self,tree,positions):
         gradBx,gradBy,gradBz = None,None,None
         
-        x = self.propagate(binarytree.edge_index[:,binarytree.edge_type==0],
-                           x=binarytree.x, pos=torch.cat(positions,0))
+        y = self.propagate(tree['in','adj','in'].edge_index,
+                           x=tree['in'].x, pos=torch.cat(positions,0))
         
         
-        return x
+        return y
    
 class BDPropGraph(pyg.nn.MessagePassing):
     def __init__(self, kernel):
@@ -55,35 +55,36 @@ class BDPropGraph(pyg.nn.MessagePassing):
     def reset_parameters(self):
         self.kernel.reset_parameters()
     def message(self, x_i, x_j, pos_i, pos_j):
-        update = self.kernel.forward(torch.cat((pos_i,x_i,pos_j),1))
+        update = self.kernel.forward(torch.cat((pos_i,x_i[:,3:6],x_j,pos_j),1))
         
         return update
     def update(self, aggr_out):
         return aggr_out
     
-    def forward(self, binarytree,positions):
+    def forward(self, tree,positions):
         y = self.propagate(
-                    binarytree.edge_index[:,binarytree.edge_type==1],
-                    x=binarytree.x, pos=torch.cat(positions,0)
+                    tree['bd','propagates','in'].edge_index, size=(tree['bd'].num_nodes,tree['in'].num_nodes),
+                    x=(tree['bd'].x,tree['in'].x), pos=(tree['bd'].pos,torch.cat(positions,0))
         )
         return y
-    
+        
 
 class FullModel(torch.nn.Module):
-    def __init__(self,propgraph, convgraph):
+    def __init__(self,propgraph, convgraph, device='cpu'):
         super(FullModel, self).__init__()
         self.propgraph = propgraph
         self.convgraph = convgraph
         
     def forward(self,data):
-        # data = data.to_homogeneous()
         
         if isinstance(data, list):
             data = pyg.data.Batch.from_data_list(data)
         
-        positions = [data.pos[j,:].unsqueeze(0).requires_grad_() for j in range(data.pos.shape[0])]
-
-        data.x[:,0:3] = self.propgraph.forward(data,positions)
+        positions = [data['in'].pos[j,:].unsqueeze(0).requires_grad_() for j in range(data['in'].pos.shape[0])]
+        
+        data['in'].x[:,0:3] = self.propgraph.forward(data,positions)
+        
+        
         B = self.convgraph.forward(data, positions)
 
         gradBx = torch.autograd.grad([B[j,0] for j in range(B.shape[0])], positions, retain_graph=True)

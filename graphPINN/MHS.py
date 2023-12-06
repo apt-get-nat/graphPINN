@@ -19,7 +19,6 @@ def loss(output,target, index=-1, logfn=None):
     0-6 denotes, in order, the three components of vector difference,
     mhs discrepancy, and divergence (all squared individually)
     """ 
-    
     vec_diff = torch.sum(torch.square(output[0]-target[0]),0) /output[0].shape[0]
     mhs_diff = torch.sum(torch.square(torch.cat((
                           torch.unsqueeze((output[1][:,2]-output[3][:,0])*output[0][:,2]-
